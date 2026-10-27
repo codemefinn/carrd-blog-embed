@@ -6,8 +6,15 @@ import { markdownToHtml } from "./markdown.js";
   // Update these IDs to match your Carrd elements.
   // ------------------------------------------------------------
   const script = document.querySelector(
-    'script[src*="/carrd-blog-embed/"][type="module"]',
+    'script[src*="/carrd-blog-embed@"][type="module"][data-owner][data-repo]',
   );
+
+  if (!script) {
+    console.error(
+      "Carrd Blog: Unable to find the embed script or its configuration.",
+    );
+    return;
+  }
 
   const config = {
     owner: script.dataset.owner,
