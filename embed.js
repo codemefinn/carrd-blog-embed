@@ -516,29 +516,50 @@ import { markdownToHtml } from "./markdown.js";
       if (!link) return;
 
       const url = new URL(link.href, window.location.href);
+
       if (
         url.origin !== window.location.origin ||
         !url.searchParams.has("slug") ||
         url.hash !== `#${config.selectors.articleSection}`
-      )
+      ) {
         return;
+      }
 
       event.preventDefault();
+
       const slug = url.searchParams.get("slug");
-      history.pushState(history.state, "", url);
+
+      history.pushState(
+        {
+          ...history.state,
+          cmsArticleSlug: slug,
+        },
+        "",
+        url,
+      );
+
       window.dispatchEvent(new HashChangeEvent("hashchange"));
       loadCurrentArticle(slug);
     });
 
     window.addEventListener("popstate", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
-      const slug = getPostSlug();
 
-      if (
-        slug &&
-        window.location.hash === `#${config.selectors.articleSection}`
-      ) {
-        loadCurrentArticle(slug);
+      const url = new URL(window.location.href);
+      let slug = url.searchParams.get("slug");
+
+      if (window.location.hash === `#${config.selectors.articleSection}`) {
+        // Restore the slug if it was removed during section navigation.
+        if (!slug && history.state?.cmsArticleSlug) {
+          slug = history.state.cmsArticleSlug;
+
+          url.searchParams.set("slug", slug);
+          history.replaceState(history.state, "", url);
+        }
+
+        if (slug) {
+          loadCurrentArticle(slug);
+        }
       } else if (
         window.location.hash === `#${config.selectors.articlesSection}`
       ) {
@@ -559,18 +580,27 @@ import { markdownToHtml } from "./markdown.js";
 
         if (rawHref === `#${config.selectors.articleSection}`) return;
 
-        // Remove CMS article parameters when navigating to any other section.
         const url = new URL(window.location.href);
-        const hasArticleParams =
-          url.searchParams.has("slug") || url.searchParams.has("post");
+        const slug = url.searchParams.get("slug");
 
-        if (hasArticleParams) {
+        if (slug || url.searchParams.has("post")) {
+          // Preserve the article slug in this history entry.
+          history.replaceState(
+            {
+              ...history.state,
+              cmsArticleSlug: slug,
+            },
+            "",
+            window.location.href,
+          );
+
+          // Remove CMS parameters without removing unrelated parameters.
           url.searchParams.delete("slug");
           url.searchParams.delete("post");
+
           history.replaceState(history.state, "", url);
         }
 
-        // Refresh the gallery when navigating back to the articles section.
         if (rawHref === `#${config.selectors.articlesSection}`) {
           loadCurrentGallery();
         }
