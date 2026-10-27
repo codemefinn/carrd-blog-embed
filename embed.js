@@ -559,11 +559,19 @@ import { markdownToHtml } from "./markdown.js";
 
         if (rawHref === `#${config.selectors.articleSection}`) return;
 
-        if (rawHref === `#${config.selectors.articlesSection}`) {
-          const url = new URL(window.location.href);
+        // Remove CMS article parameters when navigating to any other section.
+        const url = new URL(window.location.href);
+        const hasArticleParams =
+          url.searchParams.has("slug") || url.searchParams.has("post");
+
+        if (hasArticleParams) {
           url.searchParams.delete("slug");
           url.searchParams.delete("post");
           history.replaceState(history.state, "", url);
+        }
+
+        // Refresh the gallery when navigating back to the articles section.
+        if (rawHref === `#${config.selectors.articlesSection}`) {
           loadCurrentGallery();
         }
       },
