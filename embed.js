@@ -24,13 +24,13 @@ import { markdownToHtml } from "./markdown.js";
     postsPerPage: Number(script.dataset.postsPerPage) || 6,
 
     selectors: {
-      gallery: script.dataset.gallery || "gallery01",
-      title: script.dataset.title || "text01",
-      date: script.dataset.date || "text03",
-      content: script.dataset.content || "text04",
-      pagination: script.dataset.pagination || "icons01",
-      articlesSection: script.dataset.articlesSection || "articles",
-      articleSection: script.dataset.articleSection || "article",
+      gallery: script.dataset.gallery || "",
+      title: script.dataset.title || "",
+      date: script.dataset.date || "",
+      content: script.dataset.content || "",
+      pagination: script.dataset.pagination || "",
+      articlesSection: script.dataset.articlesSection || "",
+      articleSection: script.dataset.articleSection || "",
     },
   };
 
@@ -352,6 +352,9 @@ import { markdownToHtml } from "./markdown.js";
 
     function insertEllipsis() {
       const item = document.createElement("li");
+      item.style.color = style?.color || "inherit";
+      item.style.fontFamily = style?.fontFamily || "inherit";
+      item.style.fontSize = style?.fontSize || "inherit";
       item.dataset.cmsEllipsis = "true";
       item.textContent = "…";
       item.setAttribute("aria-hidden", "true");
