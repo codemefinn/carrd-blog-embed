@@ -275,32 +275,58 @@ import { markdownToHtml } from "./markdown.js";
     const nextLink = pagination.querySelector("a.n02");
 
     pagination
-      .querySelectorAll("[data-cms-page]")
+      .querySelectorAll("[data-cms-page], [data-cms-ellipsis]")
       .forEach((item) => item.remove());
 
     const prevItem = prevLink?.closest("li");
     const nextItem = nextLink?.closest("li");
+
     if (!prevItem || !nextItem) {
       console.warn("[Carrd Blog] Pagination needs .n01 and .n02 links.");
       return;
     }
 
     const pageCount = Math.max(0, totalPages);
-    for (let page = 1; page <= pageCount; page++) {
+
+    // Show all pages when there are 5 or fewer.
+    let pages = [];
+
+    if (pageCount <= 5) {
+      for (let page = 1; page <= pageCount; page++) {
+        pages.push(page);
+      }
+    } else {
+      // Always show the first and last pages,
+      // plus the current page and its immediate neighbors.
+      pages = [
+        ...new Set([
+          1,
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          pageCount,
+        ]),
+      ]
+        .filter((page) => page >= 1 && page <= pageCount)
+        .sort((a, b) => a - b);
+    }
+
+    const caption = gallery?.querySelector(".caption > p");
+    const style = caption ? window.getComputedStyle(caption) : null;
+
+    function insertItem(element, pageNumber) {
       const item = document.createElement("li");
-      item.dataset.cmsPage = String(page);
+      item.dataset.cmsPage = String(pageNumber);
       item.style.display = "flex";
       item.style.alignItems = "center";
       item.style.justifyContent = "center";
 
       const button = document.createElement("button");
       button.type = "button";
-      button.textContent = String(page);
-      button.dataset.page = String(page);
-      button.setAttribute("aria-label", `Page ${page}`);
+      button.textContent = String(pageNumber);
+      button.dataset.page = String(pageNumber);
+      button.setAttribute("aria-label", `Page ${pageNumber}`);
 
-      const caption = gallery?.querySelector(".caption > p");
-      const style = caption ? window.getComputedStyle(caption) : null;
       button.style.fontFamily = style?.fontFamily || "inherit";
       button.style.fontSize = style?.fontSize || "inherit";
       button.style.color = style?.color || "inherit";
@@ -312,7 +338,7 @@ import { markdownToHtml } from "./markdown.js";
       button.style.alignItems = "center";
       button.style.justifyContent = "center";
 
-      if (page === currentPage) {
+      if (pageNumber === currentPage) {
         button.style.fontWeight = "700";
         button.style.textDecoration = "underline";
         button.setAttribute("aria-current", "page");
@@ -324,8 +350,31 @@ import { markdownToHtml } from "./markdown.js";
       pagination.insertBefore(item, nextItem);
     }
 
+    function insertEllipsis() {
+      const item = document.createElement("li");
+      item.dataset.cmsEllipsis = "true";
+      item.textContent = "…";
+      item.setAttribute("aria-hidden", "true");
+      item.style.display = "flex";
+      item.style.alignItems = "center";
+      item.style.justifyContent = "center";
+      item.style.padding = "0 0.2em";
+
+      pagination.insertBefore(item, nextItem);
+    }
+
+    let previousPage = 0;
+
+    for (const page of pages) {
+      if (previousPage && page - previousPage > 1) {
+        insertEllipsis();
+      }
+
+      insertItem(page, page);
+      previousPage = page;
+    }
+
     const disableArrow = (link, disabled) => {
-      if (!link) return;
       link.setAttribute("aria-disabled", String(disabled));
       link.style.opacity = disabled ? "0.35" : "";
       link.style.pointerEvents = disabled ? "none" : "";
@@ -333,6 +382,7 @@ import { markdownToHtml } from "./markdown.js";
 
     disableArrow(prevLink, currentPage <= 1 || pageCount === 0);
     disableArrow(nextLink, currentPage >= pageCount || pageCount === 0);
+
     pagination.hidden = pageCount <= 1;
   }
 
