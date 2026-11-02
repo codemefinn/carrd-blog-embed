@@ -270,9 +270,12 @@ import { markdownToHtml } from "./markdown.js";
       return cached.post;
     }
 
-    // Avoid duplicate requests for the same article.
-    if (postRequests.has(slug)) {
-      return postRequests.get(slug);
+    // Identify requests by slug and SHA to avoid mixing versions.
+    const requestKey = `${slug}:${summary.sha}`;
+
+    // Avoid duplicate requests for the same article version.
+    if (postRequests.has(requestKey)) {
+      return postRequests.get(requestKey);
     }
 
     const request = (async () => {
@@ -285,21 +288,30 @@ import { markdownToHtml } from "./markdown.js";
         throw new Error("Article slug does not match posts.json.");
       }
 
-      postCache.set(slug, {
-        path: summary.path,
-        sha: summary.sha,
-        post,
-      });
+      // Only cache the result if it is still the latest version.
+      const latestSummary = allPosts.find((item) => item.slug === slug);
+
+      if (
+        latestSummary &&
+        latestSummary.path === summary.path &&
+        latestSummary.sha === summary.sha
+      ) {
+        postCache.set(slug, {
+          path: summary.path,
+          sha: summary.sha,
+          post,
+        });
+      }
 
       return post;
     })();
 
-    postRequests.set(slug, request);
+    postRequests.set(requestKey, request);
 
     try {
       return await request;
     } finally {
-      postRequests.delete(slug);
+      postRequests.delete(requestKey);
     }
   }
 
