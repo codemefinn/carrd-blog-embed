@@ -58,6 +58,10 @@ function parseInline(input, depth = 0) {
           /(?:^|\s)align=(left|center|right)(?=\s|$)/i,
         );
 
+        const roundMatch = options.match(
+          /(?:^|\s)round=(\d+(?:\.\d+)?(?:px|%|em|rem)?)(?=\s|$)/i,
+        );
+
         let width = "auto";
 
         if (widthMatch) {
@@ -70,12 +74,28 @@ function parseInline(input, depth = 0) {
           }
         }
 
+        let round = "";
+
+        if (roundMatch) {
+          const value = roundMatch[1];
+          const number = parseFloat(value);
+          const unit = value.match(/(px|%|em|rem)$/i)?.[1] || "px";
+
+          if (number >= 0) {
+            round = number + unit;
+          }
+        }
+
         const align = alignMatch ? alignMatch[1].toLowerCase() : "auto";
 
         let style = "max-width:100%;height:auto;";
 
         if (width !== "auto") {
           style += "width:" + width + ";";
+        }
+
+        if (round) {
+          style += "border-radius:" + round + ";";
         }
 
         if (align === "left") {
@@ -85,9 +105,6 @@ function parseInline(input, depth = 0) {
         } else if (align === "right") {
           style += "display:block;margin-left:auto;margin-right:0;";
         }
-
-        console.log("Matched image options:", m[3]);
-        console.log("Generated image style:", style);
 
         return (
           '<img src="' +
