@@ -49,6 +49,7 @@ import { markdownToHtml } from "./markdown.js";
 
   const postCache = new Map();
   const postCardCache = new Map();
+  const postRequests = new Map();
 
   const API_URL = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
   const RAW_BASE_URL = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.branch}/`;
@@ -182,66 +183,51 @@ import { markdownToHtml } from "./markdown.js";
   // Reads GitHub Markdown files and caches successful results.
   // ------------------------------------------------------------
 
-  function fetchPosts() {
-    if (postsPromise) return postsPromise;
-
+  async function fetchPosts() {
     const postsUrl = `${RAW_BASE_URL}posts.json`;
 
-    postsPromise = (async () => {
-      const response = await fetch(postsUrl);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch posts.json: HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid posts.json format.");
-      }
-
-      const posts = data.filter(
-        (post) =>
-          post &&
-          typeof post.title === "string" &&
-          typeof post.slug === "string" &&
-          typeof post.date === "string" &&
-          typeof post.path === "string" &&
-          post.path.startsWith(`${config.postsDirectory}/`) &&
-          /\.md$/i.test(post.path),
-      );
-
-      posts.sort((a, b) => b.date.localeCompare(a.date));
-
-      allPosts = posts;
-      window.carrdBlog = {
-        posts,
-        errors: [],
-        loading: false,
-      };
-
-      return posts;
-    })().catch((error) => {
-      postsPromise = null;
-      throw error;
+    const response = await fetch(postsUrl, {
+      cache: "no-cache",
     });
 
+    if (!response.ok) {
+      throw new Error(`Failed to fetch posts.json: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid posts.json format.");
+    }
+
+    const posts = data.filter(
+      (post) =>
+        post &&
+        typeof post.title === "string" &&
+        typeof post.slug === "string" &&
+        typeof post.date === "string" &&
+        typeof post.path === "string" &&
+        typeof post.sha === "string" &&
+        post.path.startsWith(`${config.postsDirectory}/`) &&
+        /\.md$/i.test(post.path),
+    );
+
+    posts.sort((a, b) => b.date.localeCompare(a.date));
+
+    allPosts = posts;
+
     window.carrdBlog = {
-      posts: [],
+      posts,
       errors: [],
-      loading: true,
+      loading: false,
     };
 
-    return postsPromise;
+    return posts;
   }
 
   async function fetchPost(slug) {
     if (!slug) {
       throw new Error("Missing article slug.");
-    }
-
-    if (postCache.has(slug)) {
-      return postCache.get(slug);
     }
 
     const posts = await fetchPosts();
@@ -251,17 +237,43 @@ import { markdownToHtml } from "./markdown.js";
       throw new Error("Article not found.");
     }
 
-    const post = await fetchMarkdownFile({
-      path: summary.path,
-    });
+    const cached = postCache.get(slug);
 
-    if (post.slug !== slug) {
-      throw new Error("Article slug does not match posts.json.");
+    // Reuse cached article if its SHA is unchanged.
+    if (cached && cached.path === summary.path && cached.sha === summary.sha) {
+      return cached.post;
     }
 
-    postCache.set(slug, post);
+    // Avoid duplicate requests for the same article.
+    if (postRequests.has(slug)) {
+      return postRequests.get(slug);
+    }
 
-    return post;
+    const request = (async () => {
+      const post = await fetchMarkdownFile({
+        path: summary.path,
+      });
+
+      if (post.slug !== slug) {
+        throw new Error("Article slug does not match posts.json.");
+      }
+
+      postCache.set(slug, {
+        path: summary.path,
+        sha: summary.sha,
+        post,
+      });
+
+      return post;
+    })();
+
+    postRequests.set(slug, request);
+
+    try {
+      return await request;
+    } finally {
+      postRequests.delete(slug);
+    }
   }
 
   // ------------------------------------------------------------
