@@ -146,7 +146,7 @@ import { markdownToHtml } from "./markdown.js";
 
   async function fetchMarkdownFile(file) {
     const encodedPath = file.path.split("/").map(encodeURIComponent).join("/");
-    const rawUrl = `${RAW_BASE_URL}${encodedPath}`;
+    const rawUrl = `${RAW_BASE_URL}${encodedPath}?v=${file.sha}`;
 
     const response = await fetch(rawUrl, { cache: "no-store" });
     if (!response.ok) {
@@ -252,6 +252,7 @@ import { markdownToHtml } from "./markdown.js";
     const request = (async () => {
       const post = await fetchMarkdownFile({
         path: summary.path,
+        sha: summary.sha,
       });
 
       if (post.slug !== slug) {
