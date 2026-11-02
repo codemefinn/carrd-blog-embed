@@ -44,6 +44,7 @@ import { markdownToHtml } from "./markdown.js";
 
   let currentPage = 1;
   let allPosts = [];
+  let postsPromise = null;
   let articleRequestId = 0;
 
   const postCache = new Map();
