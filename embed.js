@@ -563,6 +563,17 @@ import { markdownToHtml } from "./markdown.js";
     }
   }
 
+  function loadCurrentView() {
+    const url = new URL(window.location.href);
+    const slug = url.searchParams.get("slug");
+
+    if (slug) {
+      loadCurrentArticle(slug);
+    } else {
+      loadCurrentGallery();
+    }
+  }
+
   function initArticleNavigation() {
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a[href]");
