@@ -44,12 +44,15 @@ import { markdownToHtml } from "./markdown.js";
 
   let currentPage = 1;
   let allPosts = [];
-  let postsPromise = null;
   let articleRequestId = 0;
 
   const postCache = new Map();
   const postCardCache = new Map();
   const postRequests = new Map();
+
+  let postsFetchedAt = 0;
+  let postsLoaded = false;
+  const POSTS_CACHE_TTL = 60 * 1000;
 
   const API_URL = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch}?recursive=1`;
   const RAW_BASE_URL = `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.branch}/`;
@@ -184,45 +187,67 @@ import { markdownToHtml } from "./markdown.js";
   // ------------------------------------------------------------
 
   async function fetchPosts() {
+    const now = Date.now();
+
+    // Reuse cached posts within 60 seconds.
+    if (postsLoaded && now - postsFetchedAt < POSTS_CACHE_TTL) {
+      return allPosts;
+    }
+
+    // Avoid duplicate requests while fetching posts.json.
+    if (postsPromise) {
+      return postsPromise;
+    }
+
     const postsUrl = `${RAW_BASE_URL}posts.json`;
 
-    const response = await fetch(postsUrl, {
-      cache: "no-cache",
-    });
+    postsPromise = (async () => {
+      const response = await fetch(postsUrl, {
+        cache: "no-cache",
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch posts.json: HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch posts.json: HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid posts.json format.");
+      }
+
+      const posts = data.filter(
+        (post) =>
+          post &&
+          typeof post.title === "string" &&
+          typeof post.slug === "string" &&
+          typeof post.date === "string" &&
+          typeof post.path === "string" &&
+          typeof post.sha === "string" &&
+          post.path.startsWith(`${config.postsDirectory}/`) &&
+          /\.md$/i.test(post.path),
+      );
+
+      posts.sort((a, b) => b.date.localeCompare(a.date));
+
+      allPosts = posts;
+      postsLoaded = true;
+      postsFetchedAt = Date.now();
+
+      window.carrdBlog = {
+        posts,
+        errors: [],
+        loading: false,
+      };
+
+      return posts;
+    })();
+
+    try {
+      return await postsPromise;
+    } finally {
+      postsPromise = null;
     }
-
-    const data = await response.json();
-
-    if (!Array.isArray(data)) {
-      throw new Error("Invalid posts.json format.");
-    }
-
-    const posts = data.filter(
-      (post) =>
-        post &&
-        typeof post.title === "string" &&
-        typeof post.slug === "string" &&
-        typeof post.date === "string" &&
-        typeof post.path === "string" &&
-        typeof post.sha === "string" &&
-        post.path.startsWith(`${config.postsDirectory}/`) &&
-        /\.md$/i.test(post.path),
-    );
-
-    posts.sort((a, b) => b.date.localeCompare(a.date));
-
-    allPosts = posts;
-
-    window.carrdBlog = {
-      posts,
-      errors: [],
-      loading: false,
-    };
-
-    return posts;
   }
 
   async function fetchPost(slug) {
