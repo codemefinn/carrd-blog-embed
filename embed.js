@@ -567,9 +567,14 @@ import { markdownToHtml } from "./markdown.js";
     const url = new URL(window.location.href);
     const slug = url.searchParams.get("slug");
 
-    if (slug) {
+    if (
+      slug &&
+      window.location.hash === `#${config.selectors.articleSection}`
+    ) {
       loadCurrentArticle(slug);
-    } else {
+    } else if (
+      window.location.hash === `#${config.selectors.articlesSection}`
+    ) {
       loadCurrentGallery();
     }
   }
@@ -613,16 +618,18 @@ import { markdownToHtml } from "./markdown.js";
       let slug = url.searchParams.get("slug");
 
       if (window.location.hash === `#${config.selectors.articleSection}`) {
-        // Restore the slug if it was removed during section navigation.
         if (!slug && history.state?.cmsArticleSlug) {
           slug = history.state.cmsArticleSlug;
-
           url.searchParams.set("slug", slug);
           history.replaceState(history.state, "", url);
         }
 
         if (slug) {
           loadCurrentArticle(slug);
+        } else if (
+          config.selectors.articlesSection === config.selectors.articleSection
+        ) {
+          loadCurrentGallery();
         }
       } else if (
         window.location.hash === `#${config.selectors.articlesSection}`
@@ -648,7 +655,6 @@ import { markdownToHtml } from "./markdown.js";
         const slug = url.searchParams.get("slug");
 
         if (slug || url.searchParams.has("post")) {
-          // Preserve the article slug in this history entry.
           history.replaceState(
             {
               ...history.state,
@@ -658,7 +664,6 @@ import { markdownToHtml } from "./markdown.js";
             window.location.href,
           );
 
-          // Remove CMS parameters without removing unrelated parameters.
           url.searchParams.delete("slug");
           url.searchParams.delete("post");
 
@@ -684,6 +689,7 @@ import { markdownToHtml } from "./markdown.js";
       slug &&
       window.location.hash === `#${config.selectors.articleSection}`
     ) {
+      await loadCurrentGallery();
       await loadCurrentArticle(slug);
       return;
     }
