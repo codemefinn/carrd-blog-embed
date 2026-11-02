@@ -563,22 +563,6 @@ import { markdownToHtml } from "./markdown.js";
     }
   }
 
-  function loadCurrentView() {
-    const url = new URL(window.location.href);
-    const slug = url.searchParams.get("slug");
-
-    if (
-      slug &&
-      window.location.hash === `#${config.selectors.articleSection}`
-    ) {
-      loadCurrentArticle(slug);
-    } else if (
-      window.location.hash === `#${config.selectors.articlesSection}`
-    ) {
-      loadCurrentGallery();
-    }
-  }
-
   function initArticleNavigation() {
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a[href]");
@@ -655,6 +639,7 @@ import { markdownToHtml } from "./markdown.js";
         const slug = url.searchParams.get("slug");
 
         if (slug || url.searchParams.has("post")) {
+          // Preserve the article slug in this history entry.
           history.replaceState(
             {
               ...history.state,
@@ -664,6 +649,7 @@ import { markdownToHtml } from "./markdown.js";
             window.location.href,
           );
 
+          // Remove CMS parameters without removing unrelated parameters.
           url.searchParams.delete("slug");
           url.searchParams.delete("post");
 
