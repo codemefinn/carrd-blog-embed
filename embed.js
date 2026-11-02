@@ -104,8 +104,33 @@ import { markdownToHtml } from "./markdown.js";
     }
   }
 
+  // function parseFrontMatter(markdown) {
+  //   const normalized = markdown.replace(/^\uFEFF/, "").trimStart();
+  //   const match = normalized.match(
+  //     /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/,
+  //   );
+
+  //   if (!match) {
+  //     throw new Error("Missing or invalid front matter.");
+  //   }
+
+  //   const metadata = {};
+  //   for (const line of match[1].split(/\r?\n/)) {
+  //     const item = line.match(/^(title|slug|date|cover|excerpt):[ \t]*(.*)$/);
+  //     if (!item) continue;
+
+  //     metadata[item[1]] = item[2].trim().replace(/^(['"])(.*)\1$/, "$2");
+  //   }
+
+  //   return {
+  //     metadata,
+  //     content: normalized.slice(match[0].length).trim(),
+  //   };
+  // }
+
   function parseFrontMatter(markdown) {
     const normalized = markdown.replace(/^\uFEFF/, "").trimStart();
+
     const match = normalized.match(
       /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/,
     );
@@ -114,12 +139,16 @@ import { markdownToHtml } from "./markdown.js";
       throw new Error("Missing or invalid front matter.");
     }
 
-    const metadata = {};
-    for (const line of match[1].split(/\r?\n/)) {
-      const item = line.match(/^(title|slug|date|cover|excerpt):[ \t]*(.*)$/);
-      if (!item) continue;
+    let metadata;
 
-      metadata[item[1]] = item[2].trim().replace(/^(['"])(.*)\1$/, "$2");
+    try {
+      metadata = jsyaml.load(match[1]);
+    } catch (error) {
+      throw new Error(`Invalid YAML front matter: ${error.message}`);
+    }
+
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+      throw new Error("Front matter must be a YAML mapping.");
     }
 
     return {
