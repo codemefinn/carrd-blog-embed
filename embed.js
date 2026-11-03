@@ -207,7 +207,7 @@ import { markdownToHtml } from "./markdown.js";
             username: profile.login,
             name: profile.name?.trim() || profile.login,
             avatar: profile.avatar_url,
-            profileUrl: profile.html_url,
+            profileUrl: profileurl: profile.blog || profile.html_url,
           };
 
           return githubProfile;
