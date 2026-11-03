@@ -104,33 +104,8 @@ import { markdownToHtml } from "./markdown.js";
     }
   }
 
-  // function parseFrontMatter(markdown) {
-  //   const normalized = markdown.replace(/^\uFEFF/, "").trimStart();
-  //   const match = normalized.match(
-  //     /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/,
-  //   );
-
-  //   if (!match) {
-  //     throw new Error("Missing or invalid front matter.");
-  //   }
-
-  //   const metadata = {};
-  //   for (const line of match[1].split(/\r?\n/)) {
-  //     const item = line.match(/^(title|slug|date|cover|excerpt):[ \t]*(.*)$/);
-  //     if (!item) continue;
-
-  //     metadata[item[1]] = item[2].trim().replace(/^(['"])(.*)\1$/, "$2");
-  //   }
-
-  //   return {
-  //     metadata,
-  //     content: normalized.slice(match[0].length).trim(),
-  //   };
-  // }
-
   function parseFrontMatter(markdown) {
     const normalized = markdown.replace(/^\uFEFF/, "").trimStart();
-
     const match = normalized.match(
       /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/,
     );
@@ -139,16 +114,12 @@ import { markdownToHtml } from "./markdown.js";
       throw new Error("Missing or invalid front matter.");
     }
 
-    let metadata;
+    const metadata = {};
+    for (const line of match[1].split(/\r?\n/)) {
+      const item = line.match(/^(title|slug|date|cover|excerpt):[ \t]*(.*)$/);
+      if (!item) continue;
 
-    try {
-      metadata = jsyaml.load(match[1]);
-    } catch (error) {
-      throw new Error(`Invalid YAML front matter: ${error.message}`);
-    }
-
-    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-      throw new Error("Front matter must be a YAML mapping.");
+      metadata[item[1]] = item[2].trim().replace(/^(['"])(.*)\1$/, "$2");
     }
 
     return {
@@ -215,6 +186,40 @@ import { markdownToHtml } from "./markdown.js";
   // postService
   // Reads GitHub Markdown files and caches successful results.
   // ------------------------------------------------------------
+
+  let githubProfilePromise = null;
+  let githubProfile = null;
+
+  function fetchGitHubProfile() {
+    if (!githubProfilePromise) {
+      githubProfilePromise = fetch(
+        `https://api.github.com/users/${encodeURIComponent(config.owner)}`,
+      )
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to fetch GitHub profile.");
+          }
+
+          return response.json();
+        })
+        .then((profile) => {
+          githubProfile = {
+            username: profile.login,
+            name: profile.name?.trim() || profile.login,
+            avatar: profile.avatar_url,
+            profileUrl: profile.html_url,
+          };
+
+          return githubProfile;
+        })
+        .catch((error) => {
+          githubProfilePromise = null;
+          throw error;
+        });
+    }
+
+    return githubProfilePromise;
+  }
 
   async function fetchPosts() {
     const now = Date.now();
@@ -541,7 +546,7 @@ import { markdownToHtml } from "./markdown.js";
 
         if (caption) {
           const heading = document.createElement("strong");
-          heading.textContent = post.title || "Untitled";
+          heading.innerHTML = markdownToHtml(post.title || "Untitled");
           let titleNode = heading;
 
           if (!cardLink || !cardLink.contains(caption)) {
@@ -585,6 +590,99 @@ import { markdownToHtml } from "./markdown.js";
   // articleView
   // ------------------------------------------------------------
 
+  function renderAuthor(post) {
+    if (!dateElement) return;
+
+    let authorElement = dateElement.nextElementSibling;
+
+    if (!authorElement?.classList.contains("blog-author")) {
+      authorElement = document.createElement("div");
+      authorElement.className = "blog-author";
+      dateElement.insertAdjacentElement("afterend", authorElement);
+    }
+
+    authorElement.replaceChildren();
+
+    const hasOwn = (key) => Object.prototype.hasOwnProperty.call(post, key);
+
+    // Resolve author name.
+    const author = hasOwn("author")
+      ? post.author
+      : githubProfile?.name || githubProfile?.username || null;
+
+    // Resolve author URL.
+    const authorUrl = hasOwn("author_url")
+      ? post.author_url
+      : githubProfile?.profileUrl || null;
+
+    // Resolve author icon.
+    const icon = hasOwn("icon") ? post.icon : githubProfile?.avatar || null;
+
+    if (author == null && icon == null) {
+      authorElement.hidden = true;
+      return;
+    }
+
+    authorElement.hidden = false;
+
+    const content = document.createElement("span");
+    content.style.display = "inline-flex";
+    content.style.alignItems = "center";
+    content.style.gap = "8px";
+
+    if (icon) {
+      let imageUrl = null;
+
+      try {
+        const url = new URL(icon, window.location.href);
+
+        if (["http:", "https:"].includes(url.protocol)) {
+          imageUrl = url.href;
+        }
+      } catch {}
+
+      if (imageUrl) {
+        const image = document.createElement("img");
+        image.src = imageUrl;
+        image.alt = "";
+        image.width = 32;
+        image.height = 32;
+        image.style.borderRadius = "50%";
+        image.style.objectFit = "cover";
+
+        content.appendChild(image);
+      } else {
+        const iconElement = document.createElement("span");
+        iconElement.textContent = icon;
+        content.appendChild(iconElement);
+      }
+    }
+
+    if (author != null && String(author).trim()) {
+      const name = document.createElement("span");
+      name.textContent = author;
+      content.appendChild(name);
+    }
+
+    if (authorUrl && content.childNodes.length) {
+      try {
+        const url = new URL(authorUrl);
+
+        if (["http:", "https:"].includes(url.protocol)) {
+          const link = document.createElement("a");
+          link.href = url.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.appendChild(content);
+          authorElement.appendChild(link);
+          return;
+        }
+      } catch {}
+    }
+
+    authorElement.appendChild(content);
+  }
+
   function renderArticle(post) {
     if (!post) {
       if (titleElement) titleElement.textContent = "Article not found.";
@@ -593,8 +691,14 @@ import { markdownToHtml } from "./markdown.js";
       return;
     }
 
-    if (titleElement) titleElement.textContent = post.title || "Untitled";
-    if (dateElement) dateElement.textContent = formatDate(post.date);
+    if (titleElement) {
+      titleElement.innerHTML = markdownToHtml(post.title || "Untitled");
+    }
+
+    if (dateElement) {
+      dateElement.textContent = formatDate(post.date);
+      renderAuthor(post);
+    }
 
     if (contentElement) {
       contentElement.innerHTML = markdownToHtml(post.content || "");
@@ -750,6 +854,12 @@ import { markdownToHtml } from "./markdown.js";
     initPagination();
 
     const slug = getPostSlug();
+
+    try {
+      await fetchGitHubProfile();
+    } catch (error) {
+      console.warn("[Carrd Blog] Unable to load GitHub profile:", error);
+    }
 
     if (
       slug &&
