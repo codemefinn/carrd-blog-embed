@@ -626,9 +626,6 @@ import { markdownToHtml } from "./markdown.js";
     authorElement.hidden = false;
 
     const content = document.createElement("span");
-    content.style.display = "inline-flex";
-    content.style.alignItems = "center";
-    content.style.gap = "8px";
 
     if (icon) {
       let imageUrl = null;
