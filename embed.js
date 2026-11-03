@@ -318,6 +318,12 @@ import { markdownToHtml } from "./markdown.js";
         sha: summary.sha,
       });
 
+      const article = {
+        ...post,
+        ...summary,
+        content: post.content,
+      };
+
       if (post.slug !== slug) {
         throw new Error("Article slug does not match posts.json.");
       }
@@ -333,11 +339,11 @@ import { markdownToHtml } from "./markdown.js";
         postCache.set(slug, {
           path: summary.path,
           sha: summary.sha,
-          post,
+          post: article,
         });
       }
 
-      return post;
+      return article;
     })();
 
     postRequests.set(requestKey, request);
