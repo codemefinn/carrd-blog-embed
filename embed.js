@@ -593,15 +593,19 @@ import { markdownToHtml } from "./markdown.js";
   function renderAuthor(post) {
     if (!dateElement) return;
 
-    let authorElement = dateElement.nextElementSibling;
+    let authorElement = dateElement.querySelector(".blog-author");
 
-    if (!authorElement?.classList.contains("blog-author")) {
-      authorElement = document.createElement("div");
+    if (!authorElement) {
+      authorElement = document.createElement("span");
       authorElement.className = "blog-author";
-      dateElement.insertAdjacentElement("afterend", authorElement);
+      dateElement.appendChild(authorElement);
     }
 
     authorElement.replaceChildren();
+
+    dateElement.style.display = "flex";
+    dateElement.style.alignItems = "center";
+    dateElement.style.gap = "12px";
 
     const hasOwn = (key) => Object.prototype.hasOwnProperty.call(post, key);
 
@@ -618,7 +622,10 @@ import { markdownToHtml } from "./markdown.js";
     // Resolve author icon.
     const icon = hasOwn("icon") ? post.icon : githubProfile?.avatar || null;
 
-    if (author == null && icon == null) {
+    if (
+      (author == null || !String(author).trim()) &&
+      (icon == null || !String(icon).trim())
+    ) {
       authorElement.hidden = true;
       return;
     }
@@ -626,6 +633,9 @@ import { markdownToHtml } from "./markdown.js";
     authorElement.hidden = false;
 
     const content = document.createElement("span");
+    content.style.display = "inline-flex";
+    content.style.alignItems = "center";
+    content.style.gap = "8px";
 
     if (icon) {
       let imageUrl = null;
