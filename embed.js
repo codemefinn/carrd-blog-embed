@@ -6,7 +6,7 @@ import { markdownToHtml } from "./markdown.js";
   // Update these IDs to match your Carrd elements.
   // ------------------------------------------------------------
   const script = document.querySelector(
-    'script[src*="/carrd-blog-embed@"][type="module"][data-owner][data-repo]',
+    'script[src*="/pk-blog-embed@"][type="module"][data-owner][data-repo]',
   );
 
   if (!script) {
