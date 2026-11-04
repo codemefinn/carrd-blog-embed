@@ -686,6 +686,7 @@ import { markdownToHtml } from "./markdown.js";
           link.href = url.href;
           link.target = "_blank";
           link.rel = "noopener noreferrer";
+          link.style.color = "inherit";
           link.appendChild(content);
           authorElement.appendChild(link);
           return;
